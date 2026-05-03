@@ -1,0 +1,142 @@
+#include <LiquidCrystal.h>
+
+// LCD pins (RS, E, D4, D5, D6, D7)
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
+
+// Pin definitions
+const int trigPin = 9;
+const int echoPin = 10;
+const int buzzer = 11;
+
+const int led1 = A0;
+const int led2 = A1;
+const int led3 = A2;
+
+const int potPin = A3;
+const int tempPin = A4;
+
+// Variables
+long duration;
+int distance;
+float temperature;
+
+unsigned long objectDetectedTime = 0;
+bool objectPresent = false;
+
+void setup() {
+pinMode(trigPin, OUTPUT);
+pinMode(echoPin, INPUT);
+
+pinMode(buzzer, OUTPUT);
+
+pinMode(led1, OUTPUT);
+pinMode(led2, OUTPUT);
+pinMode(led3, OUTPUT);
+
+lcd.begin(16, 2);
+lcd.print("Smart Street");
+delay(2000);
+lcd.clear();
+}
+
+void loop() {
+
+// -------- Ultrasonic Sensor --------
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+
+duration = pulseIn(echoPin, HIGH, 30000);
+
+if (duration == 0) {
+// Sensor failure
+lcd.clear();
+lcd.print("Sensor Error!");
+digitalWrite(buzzer, HIGH);
+delay(1000);
+digitalWrite(buzzer, LOW);
+return;
+}
+
+distance = duration * 0.034 / 2;
+
+// -------- Temperature Sensor --------
+int tempValue = analogRead(tempPin);
+temperature = tempValue * (5.0 / 1023.0) * 100;
+
+// -------- Potentiometer (Day/Night) --------
+int lightLevel = analogRead(potPin);
+
+// -------- Energy Saving Mode --------
+if (lightLevel > 700) {
+// Daytime
+digitalWrite(led1, LOW);
+digitalWrite(led2, LOW);
+digitalWrite(led3, LOW);
+
+lcd.clear();
+lcd.print("Energy Saving");
+lcd.setCursor(0, 1);
+lcd.print("Mode Active");
+delay(1000);
+return;
+}
+
+// -------- Night Mode --------
+if (distance < 50) {
+// Object detected → turn ON lights sequentially
+digitalWrite(led1, HIGH);
+delay(200);
+digitalWrite(led2, HIGH);
+delay(200);
+digitalWrite(led3, HIGH);
+
+objectPresent = true;
+objectDetectedTime = millis();
+} else {
+digitalWrite(led1, LOW);
+digitalWrite(led2, LOW);
+digitalWrite(led3, LOW);
+objectPresent = false;
+}
+
+// -------- Accident Detection --------
+if (objectPresent && (millis() - objectDetectedTime > 5000)) {
+lcd.clear();
+lcd.print("Accident!");
+digitalWrite(buzzer, HIGH);
+delay(2000);
+digitalWrite(buzzer, LOW);
+}
+
+// -------- Light Failure Detection --------
+// Simulate: if LED should be ON but no condition met
+if (distance < 50 && digitalRead(led3) == LOW) {
+lcd.clear();
+lcd.print("Pole 3 Fault");
+digitalWrite(buzzer, HIGH);
+delay(2000);
+digitalWrite(buzzer, LOW);
+}
+
+// -------- Temperature Alert --------
+if (temperature > 50) {
+lcd.clear();
+lcd.print("High Temp!");
+digitalWrite(buzzer, HIGH);
+delay(2000);
+digitalWrite(buzzer, LOW);
+}
+
+// -------- Normal Display --------
+lcd.clear();
+lcd.print("Dist:");
+lcd.print(distance);
+lcd.setCursor(0, 1);
+lcd.print("Temp:");
+lcd.print(temperature);
+
+delay(1000);
+}
